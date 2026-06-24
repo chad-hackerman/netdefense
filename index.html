@@ -4,53 +4,306 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>netdefense — Network Defense Dashboard</title>
-    <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:        #0d1117;
+            --surface:   #161b22;
+            --border:    #30363d;
+            --text:      #e6edf3;
+            --text-muted:#8b949e;
+            --critical:  #d32f2f;
+            --high:      #f57c00;
+            --medium:    #f9a825;
+            --low:       #388e3c;
+            --accent:    #1f6feb;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+            font-size: 14px;
+            min-height: 100vh;
+        }
+
+        /* ── Header ── */
+        header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 24px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+        header h1 { font-size: 1.3em; }
+        header .subtitle { color: var(--text-muted); }
+        .demo-badge {
+            margin-left: auto;
+            background: #1f6feb33;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            font-size: 0.75em;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+            letter-spacing: .04em;
+        }
+        .live-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #388e3c;
+            animation: pulse 1.5s infinite;
+            margin-left: 8px;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.3; }
+        }
+
+        /* ── Stats bar ── */
+        .stats-bar {
+            display: flex;
+            gap: 16px;
+            padding: 16px 24px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+        .stat-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 24px;
+            min-width: 130px;
+            text-align: center;
+            flex: 1;
+        }
+        .stat-card.critical { border-top: 3px solid var(--critical); }
+        .stat-card.high     { border-top: 3px solid var(--high); }
+        .stat-card.medium   { border-top: 3px solid var(--medium); }
+        .stat-number {
+            font-size: 2em;
+            font-weight: 700;
+            color: var(--accent);
+            transition: color .3s;
+        }
+        .stat-number.flash { color: #fff; }
+        .stat-label  { color: var(--text-muted); font-size: 0.82em; margin-top: 4px; }
+
+        /* ── Source indicators ── */
+        .sources-bar {
+            display: flex;
+            gap: 12px;
+            padding: 10px 24px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            align-items: center;
+        }
+        .source-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 0.82em;
+            color: var(--text-muted);
+        }
+        .source-pill .dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: #388e3c;
+            animation: pulse 2s infinite;
+        }
+        .sources-label { color: var(--text-muted); font-size: 0.82em; }
+
+        /* ── Main grid ── */
+        main {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 16px;
+            padding: 20px 24px;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .card h2 {
+            font-size: 0.85em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            margin-bottom: 14px;
+        }
+        .card.full-width { grid-column: 1 / -1; }
+
+        /* ── Severity donut ── */
+        #severity-chart svg { display: block; margin: 0 auto; }
+
+        .legend {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 12px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85em;
+        }
+        .legend-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .legend-count {
+            margin-left: auto;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        /* ── Timeline ── */
+        #timeline-chart svg text { fill: var(--text-muted); }
+
+        /* ── Event feed ── */
+        #event-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        #event-table th {
+            background: var(--bg);
+            color: var(--text-muted);
+            padding: 8px 10px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.82em;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+        }
+        #event-table td {
+            padding: 7px 10px;
+            border-bottom: 1px solid var(--border);
+            max-width: 260px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 0.88em;
+        }
+        .new-row td { animation: rowFlash .6s ease; }
+        @keyframes rowFlash {
+            0%   { background: rgba(31,111,235,.25); }
+            100% { background: transparent; }
+        }
+
+        .severity-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.78em;
+            font-weight: 700;
+            letter-spacing: .03em;
+        }
+        .sev-CRITICAL { background: var(--critical); color: #fff; }
+        .sev-HIGH     { background: var(--high);     color: #fff; }
+        .sev-MEDIUM   { background: var(--medium);   color: #000; }
+        .sev-LOW      { background: var(--low);      color: #fff; }
+
+        .source-tag {
+            display: inline-block;
+            padding: 1px 7px;
+            border-radius: 4px;
+            font-size: 0.78em;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+
+        #event-feed-card { overflow: hidden; }
+        .table-wrap { max-height: 340px; overflow-y: auto; }
+
+        /* ── Footer ── */
+        footer {
+            text-align: center;
+            padding: 16px;
+            color: var(--text-muted);
+            font-size: 0.8em;
+            border-top: 1px solid var(--border);
+        }
+        footer a { color: var(--accent); text-decoration: none; }
+
+        @media (max-width: 700px) {
+            main { grid-template-columns: 1fr; }
+        }
+    </style>
 </head>
 <body>
-    <header>
-        <h1>🛡️ netdefense</h1>
-        <span class="subtitle">Network Defense Dashboard</span>
-        <div id="connection-status" class="status-dot disconnected" title="WebSocket status"></div>
-    </header>
 
-    <!-- Summary stats -->
-    <section class="stats-bar">
-        <div class="stat-card">
-            <div class="stat-number" id="stat-total">—</div>
-            <div class="stat-label">Total Events</div>
-        </div>
-        <div class="stat-card critical">
-            <div class="stat-number" id="stat-critical">—</div>
-            <div class="stat-label">Critical</div>
-        </div>
-        <div class="stat-card high">
-            <div class="stat-number" id="stat-high">—</div>
-            <div class="stat-label">High</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-number" id="stat-sources">—</div>
-            <div class="stat-label">Active Sources</div>
-        </div>
-    </section>
+<header>
+    <h1>🛡️ netdefense</h1>
+    <span class="subtitle">Network Defense Dashboard</span>
+    <div class="live-dot" title="Live data stream active"></div>
+    <span class="demo-badge">LIVE DEMO</span>
+</header>
 
-    <main>
-        <!-- Severity donut chart -->
-        <section class="card" id="severity-chart-card">
-            <h2>Severity Breakdown</h2>
-            <div id="severity-chart"></div>
-        </section>
+<div class="sources-bar">
+    <span class="sources-label">Active sources:</span>
+    <div class="source-pill"><div class="dot"></div> Splunk</div>
+    <div class="source-pill"><div class="dot" style="animation-delay:.4s"></div> ELK Stack</div>
+    <div class="source-pill"><div class="dot" style="animation-delay:.8s"></div> Security Onion</div>
+</div>
 
-        <!-- Event timeline -->
-        <section class="card" id="timeline-card">
-            <h2>Event Timeline</h2>
-            <div id="timeline-chart"></div>
-        </section>
+<div class="stats-bar">
+    <div class="stat-card">
+        <div class="stat-number" id="stat-total">0</div>
+        <div class="stat-label">Total Events</div>
+    </div>
+    <div class="stat-card critical">
+        <div class="stat-number" id="stat-critical">0</div>
+        <div class="stat-label">Critical</div>
+    </div>
+    <div class="stat-card high">
+        <div class="stat-number" id="stat-high">0</div>
+        <div class="stat-label">High</div>
+    </div>
+    <div class="stat-card medium">
+        <div class="stat-number" id="stat-medium">0</div>
+        <div class="stat-label">Medium</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number" id="stat-low">0</div>
+        <div class="stat-label">Low</div>
+    </div>
+</div>
 
-        <!-- Live event feed -->
-        <section class="card full-width" id="event-feed-card">
-            <h2>Live Event Feed</h2>
+<main>
+    <!-- Severity donut -->
+    <div class="card">
+        <h2>Severity Breakdown</h2>
+        <div id="severity-chart"></div>
+        <div class="legend" id="legend"></div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="card">
+        <h2>Event Timeline (last 20 min)</h2>
+        <div id="timeline-chart"></div>
+    </div>
+
+    <!-- Live feed -->
+    <div class="card full-width" id="event-feed-card">
+        <h2>Live Event Feed</h2>
+        <div class="table-wrap">
             <table id="event-table">
                 <thead>
                     <tr>
@@ -65,9 +318,308 @@
                 </thead>
                 <tbody id="event-tbody"></tbody>
             </table>
-        </section>
-    </main>
+        </div>
+    </div>
+</main>
 
-    <script src="/static/dashboard.js"></script>
+<footer>
+    netdefense — simulated demo &nbsp;|&nbsp;
+    <a href="https://github.com/chad-hackerman/netdefense" target="_blank">View Source on GitHub</a>
+    &nbsp;|&nbsp;
+    <a href="https://github.com/chad-hackerman/chad-hackerman-portfolio" target="_blank">Portfolio</a>
+</footer>
+
+<script>
+// ============================================================
+//  DATA SIMULATION
+// ============================================================
+
+const SEVERITIES = ["CRITICAL","HIGH","MEDIUM","LOW"];
+const SEV_WEIGHTS = [0.08, 0.20, 0.42, 0.30]; // probability weights
+const SOURCES = ["splunk","elk","security_onion"];
+const CATEGORIES = [
+    "Brute Force Attempt","Port Scan Detected","SQL Injection","XSS Attempt",
+    "Privilege Escalation","Lateral Movement","C2 Beacon","Data Exfiltration",
+    "Malware Detected","Unauthorized Access","DNS Tunneling","Phishing Email",
+    "Suspicious Login","RDP Brute Force","Zero-Day Exploit Attempt"
+];
+const DESCRIPTIONS = {
+    "Brute Force Attempt":      "Multiple failed authentication attempts detected from source IP.",
+    "Port Scan Detected":       "Sequential port scan across subnet detected by IDS sensor.",
+    "SQL Injection":            "Malicious SQL payload detected in HTTP POST parameter.",
+    "XSS Attempt":              "Cross-site scripting payload found in user-supplied input field.",
+    "Privilege Escalation":     "Process attempted to elevate privileges via kernel exploit.",
+    "Lateral Movement":         "SMB traffic detected between internal hosts — possible lateral movement.",
+    "C2 Beacon":                "Periodic outbound connection to known command-and-control IP.",
+    "Data Exfiltration":        "Large outbound data transfer to external IP outside business hours.",
+    "Malware Detected":         "Signature match for known ransomware variant on endpoint.",
+    "Unauthorized Access":      "Access to restricted file share from non-authorized account.",
+    "DNS Tunneling":            "Abnormally high DNS query volume with long subdomain strings.",
+    "Phishing Email":           "Email with malicious attachment blocked by mail gateway.",
+    "Suspicious Login":         "Login from unusual geolocation flagged by behavioral analytics.",
+    "RDP Brute Force":          "High-volume RDP login failures detected on exposed host.",
+    "Zero-Day Exploit Attempt": "Unknown exploit pattern targeting unpatched service version."
+};
+
+function randomIP() {
+    return `${rand(10,220)}.${rand(0,255)}.${rand(0,255)}.${rand(1,254)}`;
+}
+function rand(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+function weightedSeverity() {
+    const r = Math.random();
+    let cum = 0;
+    for (let i = 0; i < SEVERITIES.length; i++) {
+        cum += SEV_WEIGHTS[i];
+        if (r < cum) return SEVERITIES[i];
+    }
+    return "LOW";
+}
+function randomEvent() {
+    const cat = CATEGORIES[rand(0, CATEGORIES.length - 1)];
+    return {
+        timestamp: new Date().toISOString(),
+        severity:  weightedSeverity(),
+        source:    SOURCES[rand(0, SOURCES.length - 1)],
+        category:  cat,
+        src_ip:    randomIP(),
+        dst_ip:    randomIP(),
+        description: DESCRIPTIONS[cat]
+    };
+}
+
+// ============================================================
+//  STATE
+// ============================================================
+
+const MAX_EVENTS = 300;
+let events = [];
+let timeline = {}; // minute-bucket → count
+let counts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+
+// Pre-populate with 60 historical events spread over last 20 min
+function seedHistory() {
+    const now = Date.now();
+    for (let i = 0; i < 60; i++) {
+        const e = randomEvent();
+        const offset = rand(0, 20 * 60 * 1000);
+        e.timestamp = new Date(now - offset).toISOString();
+        events.push(e);
+        counts[e.severity]++;
+        const bucket = e.timestamp.slice(0, 16);
+        timeline[bucket] = (timeline[bucket] || 0) + 1;
+    }
+    events.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    // Render history into table (newest first, no flash)
+    [...events].reverse().forEach(e => addTableRow(e, false));
+}
+
+// ============================================================
+//  STATS
+// ============================================================
+
+function updateStats() {
+    document.getElementById("stat-total").textContent    = events.length;
+    document.getElementById("stat-critical").textContent = counts.CRITICAL;
+    document.getElementById("stat-high").textContent     = counts.HIGH;
+    document.getElementById("stat-medium").textContent   = counts.MEDIUM;
+    document.getElementById("stat-low").textContent      = counts.LOW;
+}
+
+function flashStat(id) {
+    const el = document.getElementById(id);
+    el.classList.add("flash");
+    setTimeout(() => el.classList.remove("flash"), 300);
+}
+
+// ============================================================
+//  TABLE
+// ============================================================
+
+function addTableRow(event, animate = true) {
+    const tbody = document.getElementById("event-tbody");
+    const tr = document.createElement("tr");
+    if (animate) tr.classList.add("new-row");
+    const time = new Date(event.timestamp).toLocaleTimeString();
+    tr.innerHTML = `
+        <td>${time}</td>
+        <td><span class="severity-badge sev-${event.severity}">${event.severity}</span></td>
+        <td><span class="source-tag">${event.source}</span></td>
+        <td>${event.category}</td>
+        <td style="font-family:monospace;font-size:.82em">${event.src_ip}</td>
+        <td style="font-family:monospace;font-size:.82em">${event.dst_ip}</td>
+        <td title="${event.description}">${event.description}</td>
+    `;
+    tbody.insertBefore(tr, tbody.firstChild);
+    while (tbody.rows.length > MAX_EVENTS) tbody.deleteRow(tbody.rows.length - 1);
+}
+
+// ============================================================
+//  D3 — SEVERITY DONUT
+// ============================================================
+
+const SEV_COLORS = {
+    CRITICAL: "#d32f2f",
+    HIGH:     "#f57c00",
+    MEDIUM:   "#f9a825",
+    LOW:      "#388e3c"
+};
+
+function updateDonut() {
+    const data = SEVERITIES.map(s => ({ label: s, value: counts[s] })).filter(d => d.value > 0);
+    const total = data.reduce((a, d) => a + d.value, 0);
+
+    const container = document.getElementById("severity-chart");
+    const W = container.clientWidth || 248;
+    const H = 180;
+    const R = Math.min(W, H) / 2 - 8;
+
+    d3.select("#severity-chart").selectAll("*").remove();
+
+    const svg = d3.select("#severity-chart").append("svg")
+        .attr("width", W).attr("height", H)
+        .append("g").attr("transform", `translate(${W/2},${H/2})`);
+
+    const pie  = d3.pie().value(d => d.value).sort(null);
+    const arc  = d3.arc().innerRadius(R * 0.58).outerRadius(R);
+
+    svg.selectAll("path").data(pie(data)).join("path")
+        .attr("d", arc)
+        .attr("fill", d => SEV_COLORS[d.data.label])
+        .attr("stroke", "#161b22").attr("stroke-width", 2);
+
+    // Center label
+    svg.append("text").attr("text-anchor","middle").attr("dy","-.1em")
+        .attr("font-size","1.6em").attr("font-weight","700").attr("fill","#e6edf3")
+        .text(total);
+    svg.append("text").attr("text-anchor","middle").attr("dy","1.2em")
+        .attr("font-size","0.72em").attr("fill","#8b949e").text("events");
+
+    // Legend
+    const legend = document.getElementById("legend");
+    legend.innerHTML = "";
+    SEVERITIES.forEach(s => {
+        const pct = total > 0 ? Math.round((counts[s] / total) * 100) : 0;
+        legend.innerHTML += `
+            <div class="legend-item">
+                <div class="legend-dot" style="background:${SEV_COLORS[s]}"></div>
+                <span style="color:var(--text-muted)">${s}</span>
+                <span style="color:var(--text-muted);font-size:.8em">(${pct}%)</span>
+                <span class="legend-count">${counts[s]}</span>
+            </div>`;
+    });
+}
+
+// ============================================================
+//  D3 — TIMELINE BAR CHART
+// ============================================================
+
+function updateTimeline() {
+    const container = document.getElementById("timeline-chart");
+    const W  = container.clientWidth || 500;
+    const H  = 180;
+    const mg = { top: 10, right: 16, bottom: 28, left: 36 };
+    const iW = W - mg.left - mg.right;
+    const iH = H - mg.top  - mg.bottom;
+
+    // Build 20-minute window of buckets
+    const now = new Date();
+    const buckets = [];
+    for (let i = 19; i >= 0; i--) {
+        const t = new Date(now - i * 60000);
+        const key = t.toISOString().slice(0, 16);
+        buckets.push({ time: t, count: timeline[key] || 0 });
+    }
+
+    d3.select("#timeline-chart").selectAll("*").remove();
+
+    const svg = d3.select("#timeline-chart").append("svg")
+        .attr("width", W).attr("height", H)
+        .append("g").attr("transform", `translate(${mg.left},${mg.top})`);
+
+    const x = d3.scaleBand().domain(buckets.map(d => d.time)).range([0, iW]).padding(0.25);
+    const y = d3.scaleLinear().domain([0, d3.max(buckets, d => d.count) || 1]).nice().range([iH, 0]);
+
+    svg.append("g").attr("transform", `translate(0,${iH})`)
+        .call(d3.axisBottom(x)
+            .tickValues(buckets.filter((_, i) => i % 4 === 0).map(d => d.time))
+            .tickFormat(d3.timeFormat("%H:%M")))
+        .call(g => {
+            g.selectAll("text").attr("fill","#8b949e").attr("font-size","10px");
+            g.select(".domain").attr("stroke","#30363d");
+            g.selectAll(".tick line").attr("stroke","#30363d");
+        });
+
+    svg.append("g").call(d3.axisLeft(y).ticks(4).tickFormat(d3.format("d")))
+        .call(g => {
+            g.selectAll("text").attr("fill","#8b949e").attr("font-size","10px");
+            g.select(".domain").remove();
+            g.selectAll(".tick line").attr("stroke","#30363d");
+        });
+
+    // Grid lines
+    svg.append("g").call(d3.axisLeft(y).ticks(4).tickSize(-iW).tickFormat(""))
+        .call(g => {
+            g.select(".domain").remove();
+            g.selectAll(".tick line").attr("stroke","#30363d").attr("stroke-dasharray","3,3");
+        });
+
+    svg.selectAll("rect").data(buckets).join("rect")
+        .attr("x", d => x(d.time))
+        .attr("y", d => y(d.count))
+        .attr("width", x.bandwidth())
+        .attr("height", d => iH - y(d.count))
+        .attr("fill", d => d.count > 5 ? "#d32f2f" : "#1f6feb")
+        .attr("rx", 2);
+}
+
+// ============================================================
+//  LIVE EVENT LOOP
+// ============================================================
+
+function ingestEvent() {
+    const e = randomEvent();
+    events.unshift(e);
+    if (events.length > MAX_EVENTS) events.pop();
+
+    counts[e.severity]++;
+    const bucket = e.timestamp.slice(0, 16);
+    timeline[bucket] = (timeline[bucket] || 0) + 1;
+
+    addTableRow(e, true);
+    updateStats();
+    flashStat("stat-total");
+    if (e.severity === "CRITICAL") flashStat("stat-critical");
+    if (e.severity === "HIGH")     flashStat("stat-high");
+
+    updateDonut();
+    updateTimeline();
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+
+seedHistory();
+updateStats();
+updateDonut();
+updateTimeline();
+
+// New event every 2-5 seconds
+function scheduleNext() {
+    setTimeout(() => {
+        ingestEvent();
+        scheduleNext();
+    }, rand(2000, 5000));
+}
+scheduleNext();
+
+// Redraw charts on window resize
+window.addEventListener("resize", () => {
+    updateDonut();
+    updateTimeline();
+});
+</script>
 </body>
 </html>
