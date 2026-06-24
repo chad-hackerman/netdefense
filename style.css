@@ -1,0 +1,121 @@
+/* style.css — netdefense dashboard */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --border:    #30363d;
+    --text:      #e6edf3;
+    --text-muted:#8b949e;
+    --critical:  #d32f2f;
+    --high:      #f57c00;
+    --medium:    #f9a825;
+    --low:       #388e3c;
+    --accent:    #1f6feb;
+}
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+    font-size: 14px;
+}
+
+header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+}
+
+header h1 { font-size: 1.3em; }
+header .subtitle { color: var(--text-muted); }
+
+.status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    margin-left: auto;
+}
+.status-dot.connected    { background: #388e3c; }
+.status-dot.disconnected { background: #d32f2f; }
+
+/* Stats bar */
+.stats-bar {
+    display: flex;
+    gap: 16px;
+    padding: 16px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+}
+
+.stat-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 20px;
+    min-width: 120px;
+    text-align: center;
+}
+.stat-card.critical { border-top: 3px solid var(--critical); }
+.stat-card.high     { border-top: 3px solid var(--high); }
+
+.stat-number { font-size: 1.8em; font-weight: 700; color: var(--accent); }
+.stat-label  { color: var(--text-muted); font-size: 0.85em; margin-top: 4px; }
+
+/* Main layout */
+main {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 16px;
+    padding: 20px 24px;
+}
+
+.card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+}
+.card h2 { font-size: 1em; color: var(--text-muted); margin-bottom: 12px; }
+.card.full-width { grid-column: 1 / -1; }
+
+/* Event table */
+#event-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+#event-table th {
+    background: var(--bg);
+    color: var(--text-muted);
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+}
+#event-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border);
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#event-table tr:hover td { background: rgba(31,111,235,.08); }
+
+.severity-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: 700;
+}
+.severity-CRITICAL { background: var(--critical); color: #fff; }
+.severity-HIGH     { background: var(--high);     color: #fff; }
+.severity-MEDIUM   { background: var(--medium);   color: #000; }
+.severity-LOW      { background: var(--low);      color: #fff; }
+
+/* D3 chart areas */
+#severity-chart, #timeline-chart { width: 100%; min-height: 200px; }

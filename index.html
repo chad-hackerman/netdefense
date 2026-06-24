@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>netdefense — Network Defense Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>🛡️ netdefense</h1>
+        <span class="subtitle">Network Defense Dashboard</span>
+        <div id="connection-status" class="status-dot disconnected" title="WebSocket status"></div>
+    </header>
+
+    <!-- Summary stats -->
+    <section class="stats-bar">
+        <div class="stat-card">
+            <div class="stat-number" id="stat-total">—</div>
+            <div class="stat-label">Total Events</div>
+        </div>
+        <div class="stat-card critical">
+            <div class="stat-number" id="stat-critical">—</div>
+            <div class="stat-label">Critical</div>
+        </div>
+        <div class="stat-card high">
+            <div class="stat-number" id="stat-high">—</div>
+            <div class="stat-label">High</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="stat-sources">—</div>
+            <div class="stat-label">Active Sources</div>
+        </div>
+    </section>
+
+    <main>
+        <!-- Severity donut chart -->
+        <section class="card" id="severity-chart-card">
+            <h2>Severity Breakdown</h2>
+            <div id="severity-chart"></div>
+        </section>
+
+        <!-- Event timeline -->
+        <section class="card" id="timeline-card">
+            <h2>Event Timeline</h2>
+            <div id="timeline-chart"></div>
+        </section>
+
+        <!-- Live event feed -->
+        <section class="card full-width" id="event-feed-card">
+            <h2>Live Event Feed</h2>
+            <table id="event-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Severity</th>
+                        <th>Source</th>
+                        <th>Category</th>
+                        <th>Src IP</th>
+                        <th>Dst IP</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody id="event-tbody"></tbody>
+            </table>
+        </section>
+    </main>
+
+    <script src="/static/dashboard.js"></script>
+</body>
+</html>
