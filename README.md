@@ -33,19 +33,18 @@ Real-time threat visualization platform that aggregates security data from multi
 
 ## 🏗️ Technical Architecture
 
-```
-┌─────────────────────────────────────────────────────┐
-│                    Browser (D3.js)                  │
-└────────────────────────┬────────────────────────────┘
-                         │ HTTP / WebSocket
-┌────────────────────────▼────────────────────────────┐
-│               Flask Backend (api.py)                │
-└──────┬─────────────────┬───────────────┬────────────┘
-       │                 │               │
-┌──────▼──────┐  ┌───────▼──────┐  ┌────▼────────────┐
-│ PostgreSQL  │  │    Redis     │  │  SIEM Connectors │
-│ (events DB) │  │  (cache/pub) │  │ Splunk/ELK/S.O.  │
-└─────────────┘  └──────────────┘  └─────────────────┘
+```mermaid
+graph TB
+    Browser[Browser D3.js Dashboard]
+    Browser -->|HTTP / WebSocket| Flask[Flask Backend\napi.py]
+
+    Flask --> PG[PostgreSQL\nEvent storage\nAlert history]
+    Flask --> Redis[Redis\nCache / Pub-Sub]
+    Flask --> Connectors[SIEM Connectors]
+
+    Connectors --> Splunk[Splunk]
+    Connectors --> ELK[ELK Stack]
+    Connectors --> SO[Security Onion]
 ```
 
 - **Flask** — REST API + WebSocket server for real-time event streaming
